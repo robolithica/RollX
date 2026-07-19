@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>RollX</title>
+
+<style>
+
+body {
+  font-family: "Arial", sans-serif;
+  text-align: center;
+  color: #FFFFFF;
+
+  background-image: url("symbols/tray.jpg");
+  background-repeat: no-repeat;
+  background-position: center center;
+  background-size: cover;
+  background-attachment: fixed;
+  background-color: #111; /* fallback */
+}
+
+h1 { margin-top: 20px; }
+
+button {
+  margin: 10px;
+  padding: 6px 10px;
+  font-size: 12px;
+  border: none;
+  border-radius: 6px;
+  background: #420D09;
+  color: white;
+  cursor: pointer;
+}
+
+button:hover { background: #FF2800; }
+
+select, input {
+  margin: 5px;
+  padding: 3px;
+  font-size: 10px;
+}
+
+#dice-selection {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
+#dice-container {
+  margin-top: 20px;
+}
+
+#dice-container img {
+  filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 1));
+}
+
+img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+#dice-container {
+  position: relative;
+  width: 100%;
+  height: 300px; /* adjust this to control the "roll area" */
+  margin-top: 20px;
+}
+
+.face-slot {
+  width: 40px;
+  height: 40px;
+  border: 2px dashed #555;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.face-slot.selected {
+  border: 2px solid #4CAF50;
+}
+
+#symbol-picker {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+
+.symbol {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  background: #222;
+  padding: 4px;
+}
+
+#color-picker {
+  display: flex;
+  justify-content: center;
+  gap: 5px;
+}
+
+.color-option {
+  width: 15px;
+  height: 15px;
+  border: 2px solid #555;
+  cursor: pointer;
+}
+
+.color-option.selected {
+  border: 2px solid #4CAF50;
+}
+
+#face-slots {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap; /* optional: allows wrapping on small screens */
+}
+</style>
+</head>
+
+<body>
+
+
+
+<h1>RollX Dice Roller</h1>
+
+<!-- NAV -->
+<button onclick="showScreen('main')">Roll</button>
+<button onclick="showScreen('dice')">Dice</button>
+<button onclick="showScreen('sets')">Sets</button>
+
+<!-- MAIN -->
+<div id="main-screen">
+  <h3>Select Dice</h3>
+  <div id="dice-selection"></div>
+
+  <button onclick="rollDice()">Roll Dice</button>
+  <button onclick="clearDice()">Clear</button>
+
+  <div id="dice-container"></div>
+</div>
+
+<!-- DICE MANAGER -->
+<div id="dice-manager" style="display:none;">
+
+  <h3>Color</h3>
+  <div id="color-picker">
+    <div class="color-option" data-color="#FF0000" style="background:#FF0000;"></div>
+    <div class="color-option" data-color="#00FF00" style="background:#00FF00;"></div>
+    <div class="color-option" data-color="#0000FF" style="background:#0000FF;"></div>
+    <div class="color-option" data-color="#FFFF00" style="background:#FFFF00;"></div>
+    <div class="color-option" data-color="#FF00FF" style="background:#FF00FF;"></div>
+    <div class="color-option" data-color="#00FFFF" style="background:#00FFFF;"></div>
+    <div class="color-option" data-color="#FFFFFF" style="background:#FFFFFF;"></div>
+    <div class="color-option" data-color="#222222" style="background:#222222;"></div>
+  </div>
+
+<h3>Delete Custom Dice</h3>
+
+<select id="delete-die-select">
+</select>
+
+<button id="delete-die-btn">Delete Die</button>
+  <button id="create-die-btn">Create Die</button>
+
+  <div id="die-builder" style="display:none;">
+    <div id="face-slots"></div>
+    <div id="symbol-picker"></div>
+    <button id="save-die-btn">Save Die</button>
+  </div>
+
+</div>
+
+<!-- SET MANAGER -->
+<div id="set-manager" style="display:none;">
+  <button id="save-set-btn">Save Set</button>
+  <br>
+  <select id="set-select"></select>
+  <br>
+  <button id="load-set-btn">Load Set</button>
+<h3>Delete Dice Set</h3>
+
+<select id="delete-set-select">
+</select>
+
+<button id="delete-set-btn">Delete Set</button>
+</div>
+
+
+
+<script>
+
+let selectedFaceIndex = null;
+let currentDieFaces = new Array(6).fill(null);
+let selectedDieColor = "#111";
+
+const symbolLibrary = [
+  { src: "symbols/skull1.png" },
+  { src: "symbols/shield1.png" },
+  { src: "symbols/shield2.png" }
+];
+
+const diceTypes = {
+  "Basic D6": ["face1.png","face2.png","face3.png","face4.png","face5.png","face6.png"],
+  "Alt D6": ["face1b.png","face1b.png","face3b.png","face4b.png","face5b.png","face6b.png"],
+  "Alt D8": ["8face1.png","8face2.png","8face3.png","8face4.png","8face5.png","8face6.png","8face7.png","8face8.png"]
+};
+
+function showScreen(screen) {
+  const main = document.getElementById("main-screen");
+  const dice = document.getElementById("dice-manager");
+  const sets = document.getElementById("set-manager");
+
+  if (!main || !dice || !sets) {
+    console.error("Missing screen elements");
+    return;
+  }
+
+  main.style.display = "none";
+  dice.style.display = "none";
+  sets.style.display = "none";
+
+  if (screen === "main") main.style.display = "block";
+  if (screen === "dice") dice.style.display = "block";
+  if (screen === "sets") sets.style.display = "block";
+}
+
+function getAllDiceOptions() {
+  const builtIn = Object.keys(diceTypes);
+  const saved = JSON.parse(localStorage.getItem("customDice") || "[]").map(d => d.name);
+  return [...builtIn, ...saved];
+}
+
+function buildDiceSlots() {
+  const container = document.getElementById("dice-selection");
+  container.innerHTML = "";
+
+  const options = getAllDiceOptions();
+
+  for (let i = 0; i < 6; i++) {
+    const row = document.createElement("div");
+
+    const select = document.createElement("select");
+    options.forEach(opt => {
+      const o = document.createElement("option");
+      o.value = opt;
+      o.textContent = opt;
+      select.appendChild(o);
+    });
+
+    const input = document.createElement("input");
+    input.type = "number";
+    input.value = 0;
+    input.style.width = "30px";
+
+    row.appendChild(select);
+    row.appendChild(input);
+    container.appendChild(row);
+  }
+}
+
+function rollDice() {
+  const container = document.getElementById("dice-container");
+  container.innerHTML = "";
+
+  const rows = document.querySelectorAll("#dice-selection > div");
+  const savedDice = JSON.parse(localStorage.getItem("customDice") || "[]");
+
+  rows.forEach(row => {
+    const name = row.querySelector("select").value;
+    const count = parseInt(row.querySelector("input").value);
+    if (count <= 0) return;
+
+    let die = diceTypes[name] ? {faces: diceTypes[name]} : savedDice.find(d => d.name === name);
+    if (!die) return;
+
+    for (let i = 0; i < count; i++) {
+      const face = die.faces[Math.floor(Math.random() * die.faces.length)];
+      const wrapper = document.createElement("div");
+
+wrapper.style.display = "inline-flex";
+wrapper.style.background = die.color || "transparent";
+wrapper.style.width = "60px";
+wrapper.style.height = "60px";
+wrapper.style.margin = "5px";
+
+      const img = document.createElement("img");
+      img.src = face;
+
+      wrapper.appendChild(img);
+      container.appendChild(wrapper);
+    }
+  });
+}
+
+function clearDice() {
+  document.getElementById("dice-container").innerHTML = "";
+}
+
+function renderFaceSlots() {
+  const container = document.getElementById("face-slots");
+  container.innerHTML = "";
+
+  for (let i = 0; i < 6; i++) {
+    const slot = document.createElement("div");
+    slot.classList.add("face-slot");
+    slot.style.background = selectedDieColor;
+
+    if (currentDieFaces[i]) {
+      const img = document.createElement("img");
+      img.src = currentDieFaces[i];
+      slot.appendChild(img);
+    } else {
+      slot.textContent = i + 1;
+    }
+
+    slot.onclick = () => {
+      selectedFaceIndex = i;
+      renderFaceSlots();
+    };
+
+    container.appendChild(slot);
+  }
+}
+
+function renderSymbolPicker() {
+  const container = document.getElementById("symbol-picker");
+  container.innerHTML = "";
+
+  symbolLibrary.forEach(symbol => {
+    const img = document.createElement("img");
+    img.src = symbol.src;
+    img.classList.add("symbol");
+
+    img.onclick = () => {
+      if (selectedFaceIndex === null) return;
+      currentDieFaces[selectedFaceIndex] = symbol.src;
+      renderFaceSlots();
+    };
+
+    container.appendChild(img);
+  });
+}
+
+function saveCurrentDie() {
+  const name = prompt("Die name:");
+  if (!name) return;
+
+  const dice = JSON.parse(localStorage.getItem("customDice") || "[]");
+  dice.push({ name, faces: currentDieFaces, color: selectedDieColor });
+
+  localStorage.setItem("customDice", JSON.stringify(dice));
+  buildDiceSlots(); populateDeleteDiceDropdown();
+}
+
+function saveCurrentSet() {
+  const name = prompt("Set name:");
+  if (!name) return;
+
+  const rows = document.querySelectorAll("#dice-selection > div");
+  const dice = [];
+
+  rows.forEach(row => {
+    dice.push({ name: row.querySelector("select").value });
+  });
+
+  const sets = JSON.parse(localStorage.getItem("diceSets") || "[]");
+  sets.push({ name, dice });
+
+  localStorage.setItem("diceSets", JSON.stringify(sets));
+  populateSetDropdown();
+}
+
+function loadDiceSet() {
+  const name = document.getElementById("set-select").value;
+  const sets = JSON.parse(localStorage.getItem("diceSets") || "[]");
+  const set = sets.find(s => s.name === name);
+  if (!set) return;
+
+  const rows = document.querySelectorAll("#dice-selection > div");
+
+  set.dice.forEach((d, i) => {
+    if (rows[i]) rows[i].querySelector("select").value = d.name;
+  });
+}
+
+function populateSetDropdown() {
+  const select = document.getElementById("set-select");
+  select.innerHTML = "";
+
+  const sets = JSON.parse(localStorage.getItem("diceSets") || "[]");
+
+  sets.forEach(set => {
+    const opt = document.createElement("option");
+    opt.value = set.name;
+    opt.textContent = set.name;
+    select.appendChild(opt);
+  });
+}
+
+document.querySelectorAll(".color-option").forEach(o => {
+  o.onclick = () => {
+    selectedDieColor = o.dataset.color;
+    document.querySelectorAll(".color-option").forEach(x => x.classList.remove("selected"));
+    o.classList.add("selected");
+    renderFaceSlots();
+  };
+});
+
+document.getElementById("create-die-btn").onclick = () => {
+  document.getElementById("die-builder").style.display = "block";
+};
+
+document.getElementById("save-die-btn").onclick = saveCurrentDie;
+document.getElementById("save-set-btn").onclick = saveCurrentSet;
+document.getElementById("load-set-btn").onclick = loadDiceSet;
+
+function populateDeleteSetDropdown() {
+  const select = document.getElementById("delete-set-select");
+if (!select) return;
+
+  select.innerHTML = "";
+
+  const sets = JSON.parse(localStorage.getItem("diceSets") || "[]");
+
+  sets.forEach(set => {
+    const opt = document.createElement("option");
+    opt.value = set.name;
+    opt.textContent = set.name;
+    select.appendChild(opt);
+  });
+}
+
+renderSymbolPicker();
+renderFaceSlots();
+buildDiceSlots();
+populateSetDropdown();
+populateDeleteDiceDropdown();
+
+populateDeleteSetDropdown();
+
+function populateDeleteDiceDropdown() {
+  const select = document.getElementById("delete-die-select");
+  if (!select) return;
+
+  select.innerHTML = "";
+
+  const dice = JSON.parse(localStorage.getItem("customDice") || "[]");
+
+  dice.forEach(d => {
+    const opt = document.createElement("option");
+    opt.value = d.name;
+    opt.textContent = d.name;
+    select.appendChild(opt);
+  });
+}
+
+function deleteDie() {
+  const name = document.getElementById("delete-die-select").value;
+  let dice = JSON.parse(localStorage.getItem("customDice") || "[]");
+
+  dice = dice.filter(d => d.name !== name);
+
+  localStorage.setItem("customDice", JSON.stringify(dice));
+
+  populateDeleteDiceDropdown();
+  buildDiceSlots();
+
+  alert("Die deleted");
+}
+
+document.getElementById("delete-die-btn").onclick = deleteDie;
+
+
+
+function deleteSet() {
+  const name = document.getElementById("delete-set-select").value;
+
+  let sets = JSON.parse(localStorage.getItem("diceSets") || "[]");
+  sets = sets.filter(s => s.name !== name);
+
+  localStorage.setItem("diceSets", JSON.stringify(sets));
+
+  populateDeleteSetDropdown();
+  populateSetDropdown();
+
+  alert("Set deleted");
+}
+
+document.getElementById("delete-set-btn").onclick = deleteSet;
+
+</script>
+
+</body>
+</html>
