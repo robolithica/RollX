@@ -1,0 +1,15 @@
+{
+  "name": "RollX Dice Roller",
+  "short_name": "RollX",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#111111",
+  "theme_color": "#420D09",
+  "icons": [
+    {
+      "src": "RollXicon.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
